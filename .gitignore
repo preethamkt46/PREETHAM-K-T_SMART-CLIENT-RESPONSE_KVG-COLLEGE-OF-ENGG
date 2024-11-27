@@ -1,0 +1,15 @@
+# Ignore environment variable files
+.env
+
+# Ignore Google service account credentials
+path_to_your_service_account.json
+
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+
+# Ignore virtual environment folder (if using one)
+venv/
+
+# Ignore logs and temporary files
+*.log
