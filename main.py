@@ -1,20 +1,29 @@
 from flask import Flask
+import os
 import google.generativeai as genai
 import smtplib
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
+from dotenv import load_dotenv
+
+# Load environment variables from .env (for local development)
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
 
 # Google Sheets setup
-SERVICE_ACCOUNT_FILE = 'path_to_your_service_account.json'  # Path to your service account JSON file
+SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")  # Path to your service account JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
 # Credentials setup
 credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-SHEET_ID = '1zN-QyarHOmeJG9HAGpvviEOncNpW9QcbZvbp9n0Oq40'  # Replace with your actual Google Sheet ID
-RANGE_NAME = 'Form Responses 1'  # Default sheet name for Google Forms
+SHEET_ID = os.getenv("SHEET_ID")  # Google Sheet ID from environment variables
+RANGE_NAME = os.getenv("RANGE_NAME", "Form Responses 1")  # Default range name
+
+# Gmail setup
+GMAIL_USER = os.getenv("GMAIL_USER")
+GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD")
 
 def get_user_data(data):
     if data:
@@ -34,12 +43,11 @@ def get_user_data(data):
         return user_data
     return None
 
-
-
 def generate_email_response(user_data, client_email):
     # Configure the API key
-    genai.configure(api_key="AIzaSyAYEh_5-XSNN_WXP08DCvLbveJ0yskVb9Q")  # Replace with your actual API key
+    genai.configure(api_key=os.getenv("GENERATIVE_AI_API_KEY"))  # API key from environment variables
     model = genai.GenerativeModel("gemini-1.5-flash")
+
     # Prepare the input content from user data
     input_content = f"""
         Client First Name: {user_data['first_name']}
@@ -71,15 +79,8 @@ def generate_email_response(user_data, client_email):
     """
 
     try:
-        # Use the Generative AI API to generate a response
-
-        response =model.generate_content(prompt)
-        #     genai.generate_text(
-        #     model="chat-bison-001",  # Replace this with a verified model name if needed
-        #     prompt=prompt
-        # ))
-
-        # Extract the generated text
+        # Generate email content using AI
+        response = model.generate_content(prompt)
         generated_email = response.text.strip()
 
         # Append your signature
@@ -97,7 +98,6 @@ def generate_email_response(user_data, client_email):
     except Exception as e:
         print(f"Error generating email response: {e}")
 
-
 def get_latest_form_data():
     """Fetches the latest form submission from Google Sheets."""
     service = build('sheets', 'v4', credentials=credentials)
@@ -110,14 +110,11 @@ def get_latest_form_data():
 
 def send_email(client_email, message):
     """Send the generated email response to the client."""
-    my_email = "factplay78@gmail.com"  # Your Gmail address
-    password = "nyfh mgjb yryn ejhq"  # Your email password or app-specific password
-
     with smtplib.SMTP("smtp.gmail.com", 587) as connection:
         connection.starttls()
-        connection.login(user=my_email, password=password)
+        connection.login(user=GMAIL_USER, password=GMAIL_PASSWORD)
         connection.sendmail(
-            from_addr=my_email,
+            from_addr=GMAIL_USER,
             to_addrs=client_email,
             msg=f"Subject: Project Inquiry Response\n\n{message}".encode("utf-8")
         )
