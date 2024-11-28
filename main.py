@@ -1,5 +1,6 @@
 from flask import Flask
 import os
+import base64
 import google.generativeai as genai
 import smtplib
 from googleapiclient.discovery import build
@@ -9,15 +10,18 @@ from dotenv import load_dotenv
 # Load environment variables from .env (for local development)
 load_dotenv()
 
+# Decode the service account JSON from the environment variable
+json_data = base64.b64decode(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
+service_account_path = "service_account.json"  # Path to save the decoded JSON
+with open(service_account_path, "wb") as f:
+    f.write(json_data)
+
 # Initialize Flask app
 app = Flask(__name__)
 
 # Google Sheets setup
-SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")  # Path to your service account JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-
-# Credentials setup
-credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+credentials = Credentials.from_service_account_file(service_account_path, scopes=SCOPES)
 SHEET_ID = os.getenv("SHEET_ID")  # Google Sheet ID from environment variables
 RANGE_NAME = os.getenv("RANGE_NAME", "Form Responses 1")  # Default range name
 
@@ -26,6 +30,7 @@ GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD")
 
 def get_user_data(data):
+    """Extract user data from the form submission."""
     if data:
         user_data = {
             "timestamp": data[0],
@@ -44,7 +49,7 @@ def get_user_data(data):
     return None
 
 def generate_email_response(user_data, client_email):
-    # Configure the API key
+    """Generate and send a professional email response using AI."""
     genai.configure(api_key=os.getenv("GENERATIVE_AI_API_KEY"))  # API key from environment variables
     model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -99,7 +104,7 @@ def generate_email_response(user_data, client_email):
         print(f"Error generating email response: {e}")
 
 def get_latest_form_data():
-    """Fetches the latest form submission from Google Sheets."""
+    """Fetch the latest form submission from Google Sheets."""
     service = build('sheets', 'v4', credentials=credentials)
     sheet = service.spreadsheets()
     result = sheet.values().get(spreadsheetId=SHEET_ID, range=RANGE_NAME).execute()
