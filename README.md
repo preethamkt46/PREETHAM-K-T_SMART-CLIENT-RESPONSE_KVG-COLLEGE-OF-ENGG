@@ -1,11 +1,12 @@
-SMART-CLIENT-RESPONSE
+# SMART-CLIENT-RESPONSE
 
-A Python-based application designed to provide intelligent client responses by leveraging OpenAI and Gemini APIs.
+SMART-CLIENT-RESPONSE is a Python application designed to deliver intelligent client responses by leveraging **OpenAI** or **Gemini** APIs. The application also integrates with **Google Sheets** to trigger responses via email upon form submissions.
 
-📜 Overview
+---
+
+#📜 Overview
 
 SMART-CLIENT-RESPONSE is a powerful tool to enhance client interactions through AI-driven responses. It utilizes the OpenAI API or Gemini API for natural language processing and advanced generative capabilities.
-
 ## ✨ How It Works
 
 1. **User Submission**:
@@ -21,36 +22,6 @@ SMART-CLIENT-RESPONSE is a powerful tool to enhance client interactions through 
    - Processes the data, generates a response using OpenAI/Gemini APIs, and sends an email back to client.
 
 ---
-
-
-🛠️ Features
-
-AI-Powered Client Responses: Uses OpenAI's API for intelligent and context-aware replies.
-Email Integration: Sends responses via email using smtplib.
-Multi-API Support: Combines the power of OpenAI or Gemini APIs for comprehensive solutions.
-
-🛠️ Tech Stack
-
-Backend Framework: Flask
-APIs Used:# any one:
-OpenAI API
-Gemini API
-Email Integration: smtplib
-
-🚀 Getting Started
-Prerequisites
-
-
-
-# SMART-CLIENT-RESPONSE
-
-SMART-CLIENT-RESPONSE is a Python application designed to deliver intelligent client responses by leveraging **OpenAI** or **Gemini** APIs. The application also integrates with **Google Sheets** to trigger responses via email upon form submissions.
-
----
-
-📜 Overview
-
-SMART-CLIENT-RESPONSE is a powerful tool to enhance client interactions through AI-driven responses. It utilizes the OpenAI API or Gemini API for natural language processing and advanced generative capabilities.
 
 ## 🛠️ Features
 - AI-powered responses using OpenAI or Gemini APIs.
