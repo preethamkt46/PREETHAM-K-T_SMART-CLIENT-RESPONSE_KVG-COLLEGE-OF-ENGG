@@ -57,7 +57,7 @@ def generate_email_response(user_data, client_email):
     try:
         # Use OpenAI's API to generate the email content
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4",   #replace this with the version accordingly
             messages=[
                 {"role": "system", "content": "You are a professional email assistant."},
                 {"role": "user", "content": prompt}
