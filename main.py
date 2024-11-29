@@ -1,59 +1,43 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 import os
 import base64
 import google.generativeai as genai
 import smtplib
-from googleapiclient.discovery import build
-from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 
-# Load environment variables from .env (for local development)
+# Load environment variables from .env
 load_dotenv()
 
 # Decode the service account JSON from the environment variable
+# This section ensures the service account key is accessible for the Google Generative AI API
 json_data = base64.b64decode(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
 service_account_path = "service_account.json"  # Path to save the decoded JSON
 with open(service_account_path, "wb") as f:
     f.write(json_data)
 
 # Initialize Flask app
+# This app listens for incoming requests from external sources (e.g., a webhook)
 app = Flask(__name__)
 
-# Google Sheets setup
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-credentials = Credentials.from_service_account_file(service_account_path, scopes=SCOPES)
-SHEET_ID = os.getenv("SHEET_ID")  # Google Sheet ID from environment variables
-RANGE_NAME = os.getenv("RANGE_NAME", "Form Responses 1")  # Default range name
-
 # Gmail setup
+# Configure the Gmail user and password credentials via environment variables also provide your own gmail and password thet you get
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD")
 
-def get_user_data(data):
-    """Extract user data from the form submission."""
-    if data:
-        user_data = {
-            "timestamp": data[0],
-            "first_name": data[1],
-            "last_name": data[2],
-            "email": data[3],
-            "country": data[4],
-            "location": data[5],
-            "project_type": data[6],
-            "service_category": data[7],
-            "website": data[8],
-            "additional_info": data[9],
-            "budget": data[10],
-        }
-        return user_data
-    return None
-
 def generate_email_response(user_data, client_email):
-    """Generate and send a professional email response using AI."""
-    genai.configure(api_key=os.getenv("GENERATIVE_AI_API_KEY"))  # API key from environment variables
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    """
+    Generate a professional email response using Google Gemini AI API.
 
-    # Prepare the input content from user data
+    Args:
+        user_data (dict): Dictionary containing client details.
+        client_email (str): Email address of the client to whom the email will be sent.
+
+    """
+    # Configure the API key for Gemini
+    genai.configure(api_key=os.getenv("GENERATIVE_AI_API_KEY"))  # API key from environment variables
+    model = genai.GenerativeModel("gemini-1.5-flash")  # Use Gemini's model
+
+    # Prepare input content from user data
     input_content = f"""
         Client First Name: {user_data['first_name']}
         Client Last Name: {user_data['last_name']}
@@ -67,54 +51,58 @@ def generate_email_response(user_data, client_email):
         Budget: {user_data['budget']}
     """
 
-    # AI Prompt to generate a structured email
+    # Construct the AI prompt to generate a professional email
     prompt = f"""
-        Write a professional email response based on the following client details:
-        {input_content}
-        The email should:
-        - Express gratitude for their inquiry.
-        - Introduce yourself briefly.
-        - Summarize their requirements clearly.
-        - Propose a next step for further discussion.
-        - Be polite, warm, and professional.
-        Format the email as follows:
-        - Salutation with the client's full name.
-        - Introduction and summary of their project details.
-        - Closing remarks with a professional signature.
+    You are a professional project manager responding to a client inquiry about a web development project. Below are the client details:
+    {input_content}
+
+    Based on this information, generate a clear and concise email response that:
+    1. Acknowledges the client's inquiry.
+    2. Summarizes their project requirements clearly (e.g., what pages and filters they need).
+    3. Mentions their budget and politely invites them to schedule a call to discuss further and align expectations.
+    4. Is professional, polite, and friendly.
+    5. Sign off with a professional closing, including a signature.
+    6. Includes only the signature: "Best regards, Jesna" or "Best regards, Jesna, Project Manager, XYZ Solutions".
+    7. Ensure the email does not include placeholders like [Your Name], [Your Title], or [Your Contact Information].
+
+    The email should be formatted as follows:
+    - Salutation with the client’s full name.
+    - A brief introduction and summary of their project.
+    - A closing with your professional signature.
     """
 
     try:
-        # Generate email content using AI
+        # Use the Gemini API to generate the email content
         response = model.generate_content(prompt)
+
+        # Extract the generated email content
         generated_email = response.text.strip()
 
-        # Append your signature
+        # Signature
         signature = """
         Best regards,
         Jesna
         Project Manager
         XYZ Solutions
         """
+
+        # Full message with signature
         full_message = f"{generated_email}\n\n{signature}"
 
-        # Send the generated email
+        # Send the email
         send_email(client_email, full_message)
 
     except Exception as e:
         print(f"Error generating email response: {e}")
 
-def get_latest_form_data():
-    """Fetch the latest form submission from Google Sheets."""
-    service = build('sheets', 'v4', credentials=credentials)
-    sheet = service.spreadsheets()
-    result = sheet.values().get(spreadsheetId=SHEET_ID, range=RANGE_NAME).execute()
-    rows = result.get('values', [])
-    if rows:
-        return rows[-1]  # Return the latest submission
-    return None
-
 def send_email(client_email, message):
-    """Send the generated email response to the client."""
+    """
+    Send the generated email response to the client using Gmail SMTP.
+
+    Args:
+        client_email (str): Recipient email address.
+        message (str): Email content to be sent.
+    """
     with smtplib.SMTP("smtp.gmail.com", 587) as connection:
         connection.starttls()
         connection.login(user=GMAIL_USER, password=GMAIL_PASSWORD)
@@ -124,17 +112,37 @@ def send_email(client_email, message):
             msg=f"Subject: Project Inquiry Response\n\n{message}".encode("utf-8")
         )
 
-@app.route("/")
-def index():
-    """This route will trigger the logic to fetch form data and send email."""
-    latest_submission = get_latest_form_data()
-    if latest_submission:
-        user_data = get_user_data(latest_submission)
-        if user_data:
-            generate_email_response(user_data, user_data['email'])  # Generate and send the email
-        return "Email sent!"
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    """
+    Handle webhook calls from Google Apps Script or other sources.
+    
+    Expects JSON data containing client details.
+    """
+    data = request.get_json()  # Retrieve the data from the webhook
+
+    if data:
+        # Extract user data from the incoming JSON
+        user_data = {
+            "timestamp": data["timestamp"],
+            "first_name": data["first_name"],
+            "last_name": data["last_name"],
+            "email": data["email"],
+            "country": data["country"],
+            "location": data["location"],
+            "project_type": data["project_type"],
+            "service_category": data["service_category"],
+            "website": data["website"],
+            "additional_info": data["additional_info"],
+            "budget": data["budget"],
+        }
+
+        # Generate and send the email response
+        generate_email_response(user_data, user_data["email"])
+        return jsonify({"status": "success", "message": "Email sent!"})
     else:
-        return "No new data found."
+        return jsonify({"status": "error", "message": "No data received!"}), 400
 
 if __name__ == "__main__":
+    # Start the Flask server
     app.run(debug=True)
